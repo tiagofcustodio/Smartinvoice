@@ -1,0 +1,6 @@
+flask==3.0.2
+SQLAlchemy==2.0.27
+Pillow==10.2.0
+pytesseract==0.3.10
+pdf2image==1.17.0
+pyinstaller==6.4.0
