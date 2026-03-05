@@ -58,6 +58,15 @@ class SettingsView(ttk.Frame):
         rb_empresa = ttk.Radiobutton(frame_tipo, text="Empresarial", variable=self.var_tipo, value="Empresarial", command=self.update_ui_state)
         rb_empresa.pack(side=tk.LEFT)
         
+        # Regime de IVA
+        frame_regime = ttk.LabelFrame(self, text="Regime de IVA", padding=15)
+        frame_regime.pack(fill=tk.X, pady=(0, 20))
+        
+        ttk.Label(frame_regime, text="Escolha a forma como o IVA será apurado e declarado (para apresentar os devidos relatórios):").pack(anchor=tk.W, pady=(0, 10))
+        self.var_regime = tk.StringVar(value="Isento (Art. 53º)")
+        cb_regime = ttk.Combobox(frame_regime, textvariable=self.var_regime, state="readonly", values=["Isento (Art. 53º)", "Normal Trimestral", "Normal Mensal"])
+        cb_regime.pack(fill=tk.X)
+        
         # Detalhes
         self.frame_details = ttk.LabelFrame(self, text="NIFs Autorizados", padding=15)
         self.frame_details.pack(fill=tk.BOTH, expand=True)
@@ -82,10 +91,39 @@ class SettingsView(ttk.Frame):
         self.tree.column("nif", width=120)
         self.tree.column("nome", width=250)
         self.tree.pack(fill=tk.BOTH, expand=True)
+        self.tree.pack(fill=tk.BOTH, expand=True)
+        
+        # --- NOVO BLOCO: Arquivo Cloud / Local ---
+        frm_arquivo = ttk.LabelFrame(self, text="Arquivo Seguro (Fotografias e PDFs)", padding=15)
+        frm_arquivo.pack(fill=tk.X, pady=10)
+        
+        ttk.Label(frm_arquivo, text="Pasta Local Segura (Onde guardar permanentemente os ficheiros):").pack(anchor=tk.W, pady=(0, 5))
+        
+        frm_path = ttk.Frame(frm_arquivo)
+        frm_path.pack(fill=tk.X, pady=(0, 5))
+        
+        self.var_path_arquivo = tk.StringVar()
+        self.ent_path = ttk.Entry(frm_path, textvariable=self.var_path_arquivo, width=50)
+        self.ent_path.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        
+        btn_browse = ttk.Button(frm_path, text="Procurar...", command=self.browse_archive_path)
+        btn_browse.pack(side=tk.LEFT)
+        
+        self.var_sincronizar_auto = tk.BooleanVar(value=False)
+        self.chk_sync = ttk.Checkbutton(frm_arquivo, text="Ativar Cópia de Segurança Local Automática", variable=self.var_sincronizar_auto)
+        self.chk_sync.pack(anchor=tk.W, pady=5)
+        
+        ttk.Label(frm_arquivo, text="Nota: A integração direta com Google Drive será adicionada brevemente através do 'Google Drive Desktop'.", font=("Segoe UI", 8, "italic")).pack(anchor=tk.W)
         
         # Botão Guardar
         btn_save = ttk.Button(self, text="💾 Guardar Definições", command=self.save_data, style="Accent.TButton")
         btn_save.pack(pady=20, ipady=5)
+        
+    def browse_archive_path(self):
+        from tkinter import filedialog
+        folder = filedialog.askdirectory(title="Selecione a Pasta de Arquivo")
+        if folder:
+            self.var_path_arquivo.set(folder)
         
     def update_ui_state(self):
         tipo = self.var_tipo.get()
@@ -100,10 +138,19 @@ class SettingsView(ttk.Frame):
             definicao = db.query(DefinicoesPerfil).first()
             if definicao:
                 self.var_tipo.set(definicao.tipo)
+                if definicao.regime_iva:
+                    self.var_regime.set(definicao.regime_iva)
                 self.nifs_list = json.loads(definicao.nifs_associados)
                 for item in self.nifs_list:
                     # Backward compatibility safely handled by `.get`
                     self.tree.insert("", tk.END, values=(item.get("username", "Empresa"), item.get("nif", ""), item.get("nome", "")))
+                    
+                # Load Archive settings
+                if hasattr(definicao, 'caminho_arquivo_local') and definicao.caminho_arquivo_local:
+                    self.var_path_arquivo.set(definicao.caminho_arquivo_local)
+                if hasattr(definicao, 'sincronizar_auto'):
+                    self.var_sincronizar_auto.set(definicao.sincronizar_auto)
+                    
             self.update_ui_state()
             self.load_license_data()
         except Exception as e:
@@ -148,6 +195,11 @@ class SettingsView(ttk.Frame):
                 db.add(definicao)
                 
             definicao.tipo = self.var_tipo.get()
+            definicao.regime_iva = self.var_regime.get()
+            
+            # Save Archive settings
+            definicao.caminho_arquivo_local = self.var_path_arquivo.get()
+            definicao.sincronizar_auto = self.var_sincronizar_auto.get()
             
             # Rebuild NIFS dict
             new_list = []

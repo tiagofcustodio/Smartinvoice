@@ -39,9 +39,15 @@ def extract_structured_data_with_gemini(file_path):
         raise FileNotFoundError(f"Ficheiro não encontrado: {file_path}")
         
     try:
-        # Carrega imagem e corrige rotação se via telemóvel
-        img = Image.open(file_path)
-        img = ImageOps.exif_transpose(img)
+        is_pdf = file_path.lower().endswith(".pdf")
+        
+        if is_pdf:
+            uploaded_file = client.files.upload(file=file_path)
+            # Para PDFs vamos passar o ficheiro carregado para a API
+        else:
+            # Carrega imagem e corrige rotação se via telemóvel
+            img = Image.open(file_path)
+            img = ImageOps.exif_transpose(img)
         
         # Obter contexto do perfil atual
         from core.database import get_session
@@ -66,23 +72,41 @@ def extract_structured_data_with_gemini(file_path):
         Dado o documento anexo (que pode ter ruído ou texto irrelevante), extrai os dados seguintes rigidamente em formato JSON:
         
         {nifs_permitidos_texto}
-        1. "nif": O Número de Identificação Fiscal do utilizador que pagou a fatura. Ignora qualquer NIF que pertença nitidamente à loja/empresa emissora. Geralmente tem 9 dígitos. Se Não encontrares, devolve null.
-        2. "data": A data de emissão formatada EXATAMENTE em "YYYY-MM-DD".
-        3. "fornecedor_nome": O Nome Comercial da entidade emissora (quem vendeu/prestou o serviço). REGRA DE OURO: O fornecedor NUNCA pode ser a própria empresa cliente (neste caso, a conta pertence a: {", ".join(nomes) if 'nomes' in locals() and nomes else 'si'}). Numa fatura existe SEMPRE o nome de um fornecedor fornecedor. Se o nome/entidade principal que encontrares for o da própria empresa cliente, então OBRIGATORIAMENTE tens de procurar o OUTRO nome de empresa que aparece no documento e usá-lo como fornecedor! Não incluas a forma jurídica completa, apenas o nome curto (ex: "Globlec" em vez de "GLOBLEC - LDA").
-        4. "categoria": Analisando os produtos e o fornecedor, tenta categorizar obrigatoriamente numa destas opções: 
-           "Supermercado", "Combustível", "Material Elétrico", "Materiais Construção", "Restaurante", "Telecomunicações", "Equipamento", "Saúde" ou "Outros".
-        5. "total": O "Total a Pagar" ou valor líquido final na fatura. Tem de ser um float (ex: 59.26). Ignora subtotais ou valores de incidência/IVA.
-        6. "artigos": Uma lista APENAS com os produtos reais comprados. REGRA DE OURO: Para não obteres falso-positivos, SÓ deves processar uma linha como "artigo" se esta possuir um respetivo Código de Artigo / Referência / SKU na fatura (ex: códigos alfanuméricos como "17EE805A", "2190601TBR" ou EANs de código de barras). Linhas sem referência (como portes, observações, adiantamentos, texto livre) DEVEM ser completamente ignoradas.
-           O formato deve ser rigorosamente: [{{"descricao": "Nome do Artigo Real", "valor": PreçoFinalDaLinhaComoFloat}}]
-        
-        Retorna MERA E EXCLUSIVAMENTE o bloco de código JSON final, nada mais. Começa logo com {{ e acaba em }}.
+        Retorna APENAS E EXCLUSIVAMENTE um objeto JSON válido, sem mais nenhum texto, com a seguinte estrutura. Se algum campo não for encontrado, o valor deve ser `null`.
+{{
+  "nif": "número de identificação fiscal do fornecedor (9 dígitos, sem espaços)",
+  "fornecedor_nome": "nome da entidade que emitiu a fatura",
+  "data": "data da fatura no formato YYYY-MM-DD",
+  "total": "valor total a pagar (FLOAT), usando PONTO como separador decimal. Exemplo: 12.50",
+  "categoria": "Analisando os produtos e o fornecedor, tenta categorizar numa destas opções: 'Supermercado', 'Combustível', 'Material Elétrico', 'Materiais Construção', 'Restaurante', 'Telecomunicações', 'Equipamento', 'Saúde', 'Despesas Gerais Familiares' ou 'Outros'.",
+  "categoria_irs": "Deduz a que categoria de IRS deduzível esta fatura pertence baseado no Fornecedor/Artigos. Opções válidas: 'Saúde', 'Educação', 'Habitação', 'Lares', 'Oficinas', 'Restauração e Alojamento', 'Atividades Veterinárias', 'Passes Mensais', 'Cabeleireiros', 'Ginásios', ou se nenhuma encaixar 'Despesas Gerais Familiares'.",
+  "artigos": [
+    {{
+      "descricao": "nome ou descrição do produto/serviço",
+      "taxa_iva": "taxa de IVA aplicável em percentagem ex: 0, 6, 13 ou 23 (FLOAT). Não inclua o símbolo %",
+      "valor": "valor total da linha/artigo a que diz respeito (FLOAT)"
+    }}
+  ]
+}}
         Não incluas Markdown como ```json nas extremidades.
         """
         
+        if is_pdf:
+            contents = [uploaded_file, prompt]
+        else:
+            contents = [img, prompt]
+            
         response = client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=[img, prompt]
+            contents=contents
         )
+        
+        # Limpar o ficheiro PDF do storage do Gemini para não ocupar espaço
+        if is_pdf:
+            try:
+                client.files.delete(name=uploaded_file.name)
+            except Exception:
+                pass
         
         # O modelo pode ocasionalmente meter dentro de um bloco ```json ... ```
         raw_text = response.text.strip()

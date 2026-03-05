@@ -1,33 +1,36 @@
 import requests
 from config import APP_VERSION
 
-# Nota: Em produção, este link devia ser um servidor remoto. 
-# Como nos pediram uma porta paralela com este mini servidor incluído, usamos localhost.
-UPDATE_SERVER_URL = "http://localhost:5000/api/update"
+# URL da API do GitHub para obter a última release ("Lançamento") deste repositório
+GITHUB_API_URL = "https://api.github.com/repos/tiagofcustodio/Smartinvoice/releases/latest"
 
 def check_for_updates():
     """
-    Verifica se a versão da internet é superior à versão atual.
+    Verifica se a versão no GitHub é superior à versão atual (APP_VERSION).
     Retorna uma tuple: (tem_update: bool, latest_version: str, download_url: str, release_notes: str)
     """
     try:
-        response = requests.get(UPDATE_SERVER_URL, timeout=3)
+        response = requests.get(GITHUB_API_URL, timeout=5)
         if response.status_code == 200:
             data = response.json()
-            latest = data.get("latest_version", APP_VERSION)
+            
+            # A tag no GitHub costuma vir com ou sem "v". Ex: "v1.1.0" ou "1.1.0"
+            latest_tag = data.get("tag_name", APP_VERSION)
+            latest_clean = latest_tag.replace("v", "")
+            current_clean = APP_VERSION.replace("v", "")
             
             # Uma comparação de strings simples funciona para "1.0.0" vs "1.1.0"
-            # Num cenário mais complexo deveríamos usar 'packaging.version.parse'
-            has_update = latest > APP_VERSION
+            has_update = latest_clean > current_clean
             
+            # html_url leva o utilizador à página no GitHub para ler e descarregar o novo executável/código
             return (
                 has_update, 
-                latest, 
-                data.get("download_url", ""), 
-                data.get("release_notes", "")
+                latest_clean, 
+                data.get("html_url", ""), 
+                data.get("body", "Atualização de melhorias e correções de bugs.")
             )
             
     except requests.exceptions.RequestException as e:
-        print(f"Erro ao verificar atualização no servidor de Update: {e}")
+        print(f"Erro ao verificar atualização no GitHub: {e}")
         
     return False, APP_VERSION, "", "A verificar..."

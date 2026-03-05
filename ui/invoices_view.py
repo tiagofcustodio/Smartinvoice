@@ -25,13 +25,14 @@ class InvoicesView(ttk.Frame):
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Treeview
-        columns = ("id", "data", "fornecedor", "categoria", "total", "estado")
+        columns = ("id", "data", "fornecedor", "categoria", "categoria_irs", "total", "estado")
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", yscrollcommand=scrollbar.set)
         
         self.tree.heading("id", text="ID")
         self.tree.heading("data", text="Data")
         self.tree.heading("fornecedor", text="Fornecedor")
         self.tree.heading("categoria", text="Categoria")
+        self.tree.heading("categoria_irs", text="Categoria IRS")
         self.tree.heading("total", text="Total (€)")
         self.tree.heading("estado", text="Estado")
         
@@ -39,6 +40,7 @@ class InvoicesView(ttk.Frame):
         self.tree.column("data", width=100, anchor=tk.CENTER)
         self.tree.column("fornecedor", width=150)
         self.tree.column("categoria", width=120)
+        self.tree.column("categoria_irs", width=140)
         self.tree.column("total", width=80, anchor=tk.E)
         self.tree.column("estado", width=100, anchor=tk.CENTER)
         
@@ -83,10 +85,11 @@ class InvoicesView(ttk.Frame):
             for ft, fn, cat in faturas:
                 nome_fn = fn.nome if fn else "Desconhecido"
                 nome_cat = cat.nome if cat else "Não Classificado"
+                cat_irs = ft.categoria_irs if ft.categoria_irs else "Não Definida"
                 total_str = f"{ft.total:.2f}" if ft.total else "0.00"
                 data_str = ft.data if ft.data else "Sem Data"
                 
-                self.tree.insert("", tk.END, values=(ft.id, data_str, nome_fn, nome_cat, total_str, ft.estado))
+                self.tree.insert("", tk.END, values=(ft.id, data_str, nome_fn, nome_cat, cat_irs, total_str, ft.estado))
         except Exception as e:
              messagebox.showerror("Erro de BD", f"Erro a carregar faturas: {str(e)}")
         finally:
@@ -144,22 +147,25 @@ class InvoicesView(ttk.Frame):
         lbl.pack(pady=10)
         
         # Tabela de artigos
-        colunas = ("descricao", "valor")
+        colunas = ("descricao", "valor", "iva")
         art_tree = ttk.Treeview(top, columns=colunas, show="headings", height=12)
         art_tree.heading("descricao", text="Descrição do Artigo")
         art_tree.heading("valor", text="Valor (€)")
-        art_tree.column("descricao", width=400)
-        art_tree.column("valor", width=100, anchor=tk.E)
+        art_tree.heading("iva", text="IVA (%)")
+        art_tree.column("descricao", width=330)
+        art_tree.column("valor", width=80, anchor=tk.E)
+        art_tree.column("iva", width=80, anchor=tk.E)
         art_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
         db = get_session()
         try:
             artigos = db.query(ArtigoFatura).filter(ArtigoFatura.fatura_id == fatura_id).all()
             if not artigos:
-                art_tree.insert("", tk.END, values=("(A fatura não tem artigos especificados ou o OCR não captou formato válido)", "---"))
+                art_tree.insert("", tk.END, values=("(A fatura não tem artigos especificados ou o OCR não captou formato válido)", "---", "---"))
             else:
                 for art in artigos:
-                    art_tree.insert("", tk.END, values=(art.descricao, f"{art.valor:.2f}"))
+                    taxa = art.taxa_iva if art.taxa_iva else 0.0
+                    art_tree.insert("", tk.END, values=(art.descricao, f"{art.valor:.2f}", f"{taxa:.1f}%"))
         except Exception as e:
             messagebox.showerror("Erro de BD", f"Erro a carregar artigos: {str(e)}")
         finally:
@@ -210,12 +216,21 @@ class InvoicesView(ttk.Frame):
         # Categoria
         frm_cat = ttk.Frame(frm_meta)
         frm_cat.pack(fill=tk.X, padx=10, pady=2)
-        ttk.Label(frm_cat, text="Categoria:", width=15).pack(side=tk.LEFT)
+        ttk.Label(frm_cat, text="Categoria Geral:", width=15).pack(side=tk.LEFT)
         todas_cats = [c.nome for c in db.query(Categoria).all()]
         if not todas_cats: todas_cats = ["Outros"]
         cb_cat = ttk.Combobox(frm_cat, values=todas_cats)
         cb_cat.set(categoria.nome if categoria else "Outros")
         cb_cat.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Categoria IRS
+        frm_irs = ttk.Frame(frm_meta)
+        frm_irs.pack(fill=tk.X, padx=10, pady=2)
+        ttk.Label(frm_irs, text="Categoria IRS:", width=15).pack(side=tk.LEFT)
+        opcoes_irs = ["Saúde", "Educação", "Habitação", "Lares", "Oficinas", "Restauração e Alojamento", "Atividades Veterinárias", "Passes Mensais", "Cabeleireiros", "Ginásios", "Despesas Gerais Familiares", "Outros"]
+        cb_irs = ttk.Combobox(frm_irs, values=opcoes_irs)
+        cb_irs.set(fatura.categoria_irs if fatura.categoria_irs else "Despesas Gerais Familiares")
+        cb_irs.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
         # Data
         frm_data = ttk.Frame(frm_meta)
@@ -232,6 +247,20 @@ class InvoicesView(ttk.Frame):
         ent_total = ttk.Entry(frm_total)
         ent_total.insert(0, str(fatura.total) if fatura.total else "0.00")
         ent_total.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Tipo Despesa e Dedutibilidade (Lado a Lado)
+        frm_impostos = ttk.Frame(frm_meta)
+        frm_impostos.pack(fill=tk.X, padx=10, pady=(10, 2))
+        
+        ttk.Label(frm_impostos, text="Tipo de Fatura:").pack(side=tk.LEFT)
+        cb_tipo = ttk.Combobox(frm_impostos, values=["Despesas da atividade", "Despesas pessoais"], width=20, state="readonly")
+        cb_tipo.set(fatura.tipo_despesa if fatura.tipo_despesa else "Despesas da atividade")
+        cb_tipo.pack(side=tk.LEFT, padx=5)
+        
+        ttk.Label(frm_impostos, text="% Dedução IVA:").pack(side=tk.LEFT, padx=(15, 0))
+        ent_grau = ttk.Entry(frm_impostos, width=8)
+        ent_grau.insert(0, str(fatura.grau_dedutibilidade) if fatura.grau_dedutibilidade else "100.0")
+        ent_grau.pack(side=tk.LEFT, padx=5)
         
         # --- ARTIGOS / LINHAS ---
         frm_arts = ttk.LabelFrame(top, text="Linhas / Artigos")
@@ -256,29 +285,36 @@ class InvoicesView(ttk.Frame):
         # Títulos
         ttk.Label(scrollable_frame, text="Descrição do Artigo", font=("Helvetica", 9, "bold")).grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
         ttk.Label(scrollable_frame, text="Valor (€)", font=("Helvetica", 9, "bold")).grid(row=0, column=1, padx=5, pady=5, sticky=tk.E)
+        ttk.Label(scrollable_frame, text="IVA (%)", font=("Helvetica", 9, "bold")).grid(row=0, column=2, padx=5, pady=5, sticky=tk.E)
         
         artigo_entries = []
         
-        def add_artigo_row(desc="", val="0.00", db_id=None):
+        def add_artigo_row(desc="", val="0.00", iva="0.0", db_id=None):
             row_idx = len(artigo_entries) + 1
-            e_desc = ttk.Entry(scrollable_frame, width=50)
+            e_desc = ttk.Entry(scrollable_frame, width=40)
             e_desc.insert(0, desc)
             e_desc.grid(row=row_idx, column=0, padx=5, pady=2, sticky=tk.W)
             
-            e_val = ttk.Entry(scrollable_frame, width=15)
+            e_val = ttk.Entry(scrollable_frame, width=12)
             e_val.insert(0, str(val))
             e_val.grid(row=row_idx, column=1, padx=5, pady=2, sticky=tk.E)
+            
+            e_iva = ttk.Entry(scrollable_frame, width=10)
+            e_iva.insert(0, str(iva))
+            e_iva.grid(row=row_idx, column=2, padx=5, pady=2, sticky=tk.E)
             
             artigo_entries.append({
                 "id": db_id,
                 "desc_entry": e_desc,
-                "val_entry": e_val
+                "val_entry": e_val,
+                "iva_entry": e_iva
             })
             
         # Popular linhas existentes
         if artigos:
             for art in artigos:
-                add_artigo_row(art.descricao, art.valor, art.id)
+                taxa = art.taxa_iva if art.taxa_iva else 0.0
+                add_artigo_row(art.descricao, art.valor, taxa, art.id)
         else:
             add_artigo_row() # Pelo menos uma linha vazia
             
@@ -295,6 +331,12 @@ class InvoicesView(ttk.Frame):
                 
                 fatura.data = nova_data
                 fatura.total = novo_total
+                fatura.tipo_despesa = cb_tipo.get().strip()
+                fatura.categoria_irs = cb_irs.get().strip()
+                try:
+                    fatura.grau_dedutibilidade = float(ent_grau.get().strip().replace(',', '.'))
+                except ValueError:
+                    fatura.grau_dedutibilidade = 100.0
                 
                 # Update/Create Fornecedor
                 novo_fornecedor_nome = ent_fn.get().strip()
@@ -326,10 +368,12 @@ class InvoicesView(ttk.Frame):
                 for row in artigo_entries:
                     d = row["desc_entry"].get().strip()
                     v_str = row["val_entry"].get().strip().replace(',', '.')
+                    iva_str = row["iva_entry"].get().strip().replace(',', '.')
                     
                     if d: # Só salva se a linha tiver descrição
                         v = float(v_str) if v_str else 0.0
-                        novo_art = ArtigoFatura(fatura_id=fatura.id, descricao=d, valor=v)
+                        iva = float(iva_str) if iva_str else 0.0
+                        novo_art = ArtigoFatura(fatura_id=fatura.id, descricao=d, valor=v, taxa_iva=iva)
                         db.add(novo_art)
                 
                 # 3. Commit Final

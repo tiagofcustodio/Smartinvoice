@@ -137,6 +137,7 @@ class NewProfileWizard(tk.Toplevel):
         self.frm_business: Any = None
         self.entry_bus_nif: Any = None
         self.entry_bus_name: Any = None
+        self.var_regime: Any = None
         
         # Center the wizard over the ProfileSelector
         # Removido transient/grab_set para evitar bloqueios ao criar o Toplevel
@@ -169,8 +170,14 @@ class NewProfileWizard(tk.Toplevel):
         ttk.Radiobutton(frm_tipos, text="Doméstico (Agregado Familiar)", variable=self.var_tipo, value="Pessoal", command=self.update_view).pack(side=tk.LEFT, padx=(0, 20))
         ttk.Radiobutton(frm_tipos, text="Empresarial", variable=self.var_tipo, value="Empresarial", command=self.update_view).pack(side=tk.LEFT)
         
+        # Regime de IVA
+        ttk.Label(frm, text="3. Regime de IVA", font=("Segoe UI", 12, "bold")).pack(anchor=tk.W, pady=(0, 5))
+        self.var_regime = tk.StringVar(value="Isento (Art. 53º)")
+        cb_regime = ttk.Combobox(frm, textvariable=self.var_regime, state="readonly", values=["Isento (Art. 53º)", "Normal Trimestral", "Normal Mensal"])
+        cb_regime.pack(fill=tk.X, pady=(0, 15), ipady=4)
+        
         # Details Frame dynamically changing
-        self.frm_details = ttk.LabelFrame(frm, text="Dados Fiscais (NIFs associados)", padding=10)
+        self.frm_details = ttk.LabelFrame(frm, text="4. Dados Fiscais (NIFs associados)", padding=10)
         self.frm_details.pack(fill=tk.BOTH, expand=True, pady=10)
         
         # For Domestic
@@ -272,7 +279,8 @@ class NewProfileWizard(tk.Toplevel):
             nova_def = DefinicoesPerfil(
                 tipo=tipo,
                 nome_principal=db_safe,
-                nifs_associados=json.dumps(nifs_data)
+                nifs_associados=json.dumps(nifs_data),
+                regime_iva=self.var_regime.get()
             )
             db.add(nova_def)
             db.commit()

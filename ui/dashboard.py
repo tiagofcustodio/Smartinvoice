@@ -8,6 +8,11 @@ from ui.upload_view import UploadView
 from ui.invoices_view import InvoicesView
 from ui.monthly_view import MonthlyView
 from ui.settings_view import SettingsView
+from ui.iva_view import IvaView
+from ui.atsync_view import ATSyncView
+from ui.crm_view import CRMView
+from ui.bank_view import BankSyncView
+from ui.issue_view import InvoiceIssueView
 from config import PENDING_DIR, PROCESSED_DIR, MOBILE_APP_TOKEN
 from ocr.ocr_engine import extract_text
 from ocr.parser import parse_invoice_text
@@ -45,22 +50,37 @@ class Dashboard(ttk.Frame):
         self.act_bg = "#e0e0e0"
         self.font_nav = ("Segoe UI", 11)
 
-        self.btn_home = tk.Button(self.sidebar_frame, text="🏠 Início", command=self.show_home, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
+        self.btn_home = tk.Button(self.sidebar_frame, text="🏠\tInício", command=self.show_home, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
         self.btn_home.pack(fill=tk.X, padx=10, pady=5, ipady=6)
         
-        self.btn_upload = tk.Button(self.sidebar_frame, text="🖨️ Digitalizar", command=self.show_upload, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
+        self.btn_upload = tk.Button(self.sidebar_frame, text="🖨\tDigitalizar", command=self.show_upload, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
         self.btn_upload.pack(fill=tk.X, padx=10, pady=5, ipady=6)
         
-        self.btn_faturas = tk.Button(self.sidebar_frame, text="📑 Faturas", command=self.show_faturas, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
+        self.btn_faturas = tk.Button(self.sidebar_frame, text="📑\tFaturas", command=self.show_faturas, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
         self.btn_faturas.pack(fill=tk.X, padx=10, pady=5, ipady=6)
         
-        self.btn_resumo = tk.Button(self.sidebar_frame, text="📊 Resumo Mensal", command=self.show_resumo, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
+        self.btn_crm = tk.Button(self.sidebar_frame, text="🤝\tCRM / Entidades", command=self.show_crm, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
+        self.btn_crm.pack(fill=tk.X, padx=10, pady=5, ipady=6)
+        
+        self.btn_banco = tk.Button(self.sidebar_frame, text="🏦\tBanco", command=self.show_banco, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
+        self.btn_banco.pack(fill=tk.X, padx=10, pady=5, ipady=6)
+        
+        self.btn_emitir = tk.Button(self.sidebar_frame, text="✍️\tEmitir Faturas", command=self.show_emitir, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
+        self.btn_emitir.pack(fill=tk.X, padx=10, pady=5, ipady=6)
+        
+        self.btn_resumo = tk.Button(self.sidebar_frame, text="📊\tResumo Mensal", command=self.show_resumo, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
         self.btn_resumo.pack(fill=tk.X, padx=10, pady=5, ipady=6)
         
-        self.btn_mobile = tk.Button(self.sidebar_frame, text="📱 Telemóvel", command=self.show_mobile_instructions, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
+        self.btn_iva = tk.Button(self.sidebar_frame, text="📄\tDeclaração de IVA", command=self.show_iva, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
+        self.btn_iva.pack(fill=tk.X, padx=10, pady=5, ipady=6)
+        
+        self.btn_atsync = tk.Button(self.sidebar_frame, text="☁️\tSincronizar AT", command=self.show_atsync, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
+        self.btn_atsync.pack(fill=tk.X, padx=10, pady=5, ipady=6)
+        
+        self.btn_mobile = tk.Button(self.sidebar_frame, text="📱\tTelemóvel", command=self.show_mobile_instructions, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
         self.btn_mobile.pack(fill=tk.X, padx=10, pady=5, ipady=6)
         
-        self.btn_settings = tk.Button(self.sidebar_frame, text="⚙️ Definições", command=self.show_settings, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
+        self.btn_settings = tk.Button(self.sidebar_frame, text="⚙️\tDefinições", command=self.show_settings, font=self.font_nav, bg=self.btn_bg, fg=self.btn_fg, activebackground=self.act_bg, relief="flat", cursor="hand2", anchor="w", padx=20)
         self.btn_settings.pack(fill=tk.X, padx=10, pady=5, ipady=6)
         
         lbl_status = ttk.Label(self.sidebar_frame, text="🟢 Web Server Ativo", justify=tk.CENTER, foreground="green")
@@ -80,7 +100,12 @@ class Dashboard(ttk.Frame):
             "home": HomeView(self.content_frame),
             "upload": UploadView(self.content_frame, self),
             "faturas": InvoicesView(self.content_frame),
+            "crm": CRMView(self.content_frame),
+            "banco": BankSyncView(self.content_frame),
+            "emitir": InvoiceIssueView(self.content_frame),
             "resumo": MonthlyView(self.content_frame),
+            "iva": IvaView(self.content_frame),
+            "atsync": ATSyncView(self.content_frame, self.show_faturas),
             "settings": SettingsView(self.content_frame)
         }
         
@@ -166,6 +191,18 @@ class Dashboard(ttk.Frame):
             # 4. BD Logic
             db = get_session()
             
+            # Verificar definicoes de Cloud Sync
+            from core.models import DefinicoesPerfil
+            definicoes = db.query(DefinicoesPerfil).first()
+            cloud_path = ""
+            auto_sync = False
+            if definicoes:
+                try:
+                    cloud_path = definicoes.caminho_arquivo_local
+                    auto_sync = definicoes.sincronizar_auto
+                except AttributeError:
+                    pass
+            
             # Verificar/Criar Fornecedor
             nif_extracted = parsed_data.get("nif", "")
             fornecedor = None
@@ -197,13 +234,20 @@ class Dashboard(ttk.Frame):
                 db.commit()
                 db.refresh(categoria)
                 
+            # Definir Dedução Padrão baseada na categoria
+            grau_deducao = 100.0
+            if categoria.nome in ["Combustível", "Restaurante"]:
+                grau_deducao = 50.0
+                
             # Criar Fatura
             fatura = Fatura(
                 fornecedor_id=fornecedor.id,
                 data=parsed_data["data"],
                 total=parsed_data["total"] if parsed_data["total"] else 0.0,
                 categoria_id=categoria.id,
-                estado="Pendente"
+                estado="Pendente",
+                tipo_despesa="Despesas da atividade",
+                grau_dedutibilidade=grau_deducao
             )
             db.add(fatura)
             db.commit()
@@ -211,10 +255,18 @@ class Dashboard(ttk.Frame):
             
             # Inserir Artigos da fatura
             for art in parsed_data.get("artigos", []):
+                # Extrair taxa iva se o gemini encontrou
+                taxa_iva_extraida = art.get("taxa_iva", 0.0)
+                try:
+                    t_iva = float(taxa_iva_extraida)
+                except (ValueError, TypeError):
+                    t_iva = 0.0
+                    
                 novo_artigo = ArtigoFatura(
                     fatura_id=fatura.id,
                     descricao=art["descricao"],
-                    valor=art["valor"]
+                    valor=art["valor"],
+                    taxa_iva=t_iva
                 )
                 db.add(novo_artigo)
                 
@@ -224,7 +276,15 @@ class Dashboard(ttk.Frame):
             fatura_id = fatura.id
             db.close()
             
-            # Mover ficheiro
+            # Arquivo Permanente Seguro / Cloud Dir (Cópia Secundária)
+            if auto_sync and cloud_path and os.path.isdir(cloud_path):
+                try:
+                    seguro_path = os.path.join(cloud_path, filename)
+                    shutil.copy2(filepath, seguro_path)
+                except Exception as ex:
+                    print(f"Aviso: Não foi possível copiar para o Arquivo Cloud: {ex}")
+            
+            # Mover ficheiro principal
             dest_path = os.path.join(PROCESSED_DIR, filename)
             shutil.move(filepath, dest_path)
             
@@ -245,7 +305,7 @@ class Dashboard(ttk.Frame):
             
     def _set_active_button(self, active_btn):
         # Reset all standard buttons to inactive style
-        buttons = [self.btn_home, self.btn_upload, self.btn_faturas, self.btn_resumo, self.btn_mobile, self.btn_settings]
+        buttons = [self.btn_home, self.btn_upload, self.btn_faturas, self.btn_crm, self.btn_banco, self.btn_emitir, self.btn_resumo, self.btn_iva, self.btn_atsync, self.btn_mobile, self.btn_settings]
         for btn in buttons:
             btn.configure(bg=self.btn_bg, fg=self.btn_fg)
             
@@ -269,12 +329,41 @@ class Dashboard(ttk.Frame):
         self.views["faturas"].load_data()  # Atualiza os dados
         self.views["faturas"].grid(row=0, column=0, sticky="nsew")
         
+    def show_crm(self):
+        self._hide_all_views()
+        self._set_active_button(self.btn_crm)
+        self.views["crm"].load_data()
+        self.views["crm"].grid(row=0, column=0, sticky="nsew")
+        
+    def show_banco(self):
+        self._hide_all_views()
+        self._set_active_button(self.btn_banco)
+        self.views["banco"].load_data()
+        self.views["banco"].grid(row=0, column=0, sticky="nsew")
+        
+    def show_emitir(self):
+        self._hide_all_views()
+        self._set_active_button(self.btn_emitir)
+        self.views["emitir"].load_data()
+        self.views["emitir"].grid(row=0, column=0, sticky="nsew")
+        
     def show_resumo(self):
         self._hide_all_views()
         self._set_active_button(self.btn_resumo)
         self.views["resumo"].refresh_months_list()
         self.views["resumo"].load_data()
         self.views["resumo"].grid(row=0, column=0, sticky="nsew")
+        
+    def show_iva(self):
+        self._hide_all_views()
+        self._set_active_button(self.btn_iva)
+        self.views["iva"].load_profile_config()
+        self.views["iva"].grid(row=0, column=0, sticky="nsew")
+        
+    def show_atsync(self):
+        self._hide_all_views()
+        self._set_active_button(self.btn_atsync)
+        self.views["atsync"].grid(row=0, column=0, sticky="nsew")
         
     def show_settings(self):
         self._hide_all_views()
